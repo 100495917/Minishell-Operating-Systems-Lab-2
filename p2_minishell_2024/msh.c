@@ -3,7 +3,7 @@
 //  MSH main file
 // Write your msh source code here
 
-//#include "parser.h"
+// #include "parser.h"
 #include <stddef.h>			/* NULL */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -201,7 +201,82 @@ int main(int argc, char* argv[])
 			}
 			else {
 				// Print command
-				print_command(argvv, filev, in_background);
+				// print_command(argvv, filev, in_background);        
+        if (command_counter == 1){
+          // Case when a simple command with arguments is given
+          pid_t pid = fork();
+          if (pid == 0){
+            
+            // Child process executes the command
+            if(execvp(argvv[0][0], argvv[0]) < 0){
+              perror("Error: command not found\n");
+            };
+
+          }
+          else{
+            // Parent process waits for the child process to finish (foreground)
+            if (in_background == 0){
+              waitpid(pid, &status, 0);
+              if (status < 0){
+                perror("Error: command execution");
+              }
+            }
+            else{
+              // If the execution is in background we print the child pid and don't wait
+              printf("[%d]\n", pid);
+            }         
+          }
+        }
+
+        else if(command_counter == 2){
+          // Case when a sequence of 2 commands is given
+          pid_t pid1 = fork(); // Fork a child process
+          if (pid1 == 0){
+            // Child process creates a pipe and creates a child process to execute the first command
+            int fd[2];
+            if(pipe(fd) < 0){
+              perror("Error: pipe");
+            }
+            pid_t pid2 = fork();
+            if (pid2 == 0){
+              // Grandchild process redirects the standard output to the pipe and executes the first command
+              close(1);
+              close(fd[0]);
+              dup(fd[1]);
+              close(fd[1]);
+              if(execvp(argvv[0][0], argvv[0]) < 0){
+                perror("Error: command not found\n");
+              }
+            }
+            else{
+              // Child process redirects the standard input to the pipe and executes the second command
+              close(0);
+              close(fd[1]);
+              dup(fd[0]);
+              close(fd[0]);
+              if(execlp(argvv[1][0], argvv[1][0], NULL) < 0){
+                perror("Error: command not found\n");
+              }
+              
+            }
+
+          }
+          else{
+            // Parent process waits for the child process to finish (foreground)
+            if (in_background == 0){
+              waitpid(pid1, &status, 0);
+              if (status < 0){
+                perror("Error: command execution");
+              }
+            }
+            else{
+              // If the execution is in background we print the child pid and don't wait
+              printf("[%d]\n", pid1);
+            }         
+          }
+          
+        }
+              
 			}
 		}
 	}
