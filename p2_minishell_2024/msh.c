@@ -195,89 +195,105 @@ int main(int argc, char* argv[])
 
 
 		/************************ STUDENTS CODE ********************************/
-	   if (command_counter > 0) {
-			if (command_counter > MAX_COMMANDS){
+	  if (command_counter > 0) {       
+		    if (command_counter > MAX_COMMANDS){
 				printf("Error: Maximum number of commands is %d \n", MAX_COMMANDS);
 			}
-			else {
-				// Print command
-				// print_command(argvv, filev, in_background);        
-        if (command_counter == 1){
-          // Case when a simple command with arguments is given
-          pid_t pid = fork();
-          if (pid == 0){
-            
-            // Child process executes the command
-            if(execvp(argvv[0][0], argvv[0]) < 0){
-              perror("Error: command not found\n");
-            };
 
-          }
-          else{
-            // Parent process waits for the child process to finish (foreground)
-            if (in_background == 0){
-              waitpid(pid, &status, 0);
-              if (status < 0){
-                perror("Error: command execution");
-              }
+        // Create pipes for sequences of commands (number of pipes = number of commands - 1)		
+        // The pipe arrays are stored in another array allocated with malloc(), hence the double int pointer
+        int **pipes = (int**)malloc(sizeof(int*) * (command_counter - 1));
+	
+			  // Then we allocare space for 2 file descriptors (size of a pipe) in each of the positions of the array
+        for (int i = 0; i < command_counter - 1; i++) {
+            pipes[i] = (int*)malloc(sizeof(int) * 2);
+            if (pipe(pipes[i]) == -1) {
+                perror("pipe");
             }
+        }
+	
+        // Then we allocate memory for each of the child pids that will be created (one child per command)
+        pid_t *child_pids = (pid_t*)malloc(sizeof(pid_t) * command_counter);
+        
+        // We use a loop to fork the parent process and create as many children as commands
+        for (int i = 0; i < command_counter; i++) {
+            child_pids[i] = fork();
+            if (child_pids[i] == -1) {
+                perror("fork");
+            }
+      
+            if (child_pids[i] == 0) {
+                // Child process
+
+                if (i != 0) {
+                    // If a command that is not the first one is to be executed we redirect the 
+                    // stdin to the read end of the pipe connected to the previous command
+                    close(0);
+                    dup(pipes[i - 1][0]);
+                    
+                    // Close the pipe used to receive data from the previous command
+                    close(pipes[i - 1][0]);
+                    close(pipes[i - 1][1]);
+                }
+
+                if (i != command_counter - 1) {
+                    // If a command that is not the last one is to be executed we redirect the 
+                    // stdout to the write end of the pipe connected to the following command
+                    close(1);
+                    dup(pipes[i][1]);
+                    
+                    // Close the pipe used to send data to the following command
+                    close(pipes[i][0]);
+                    close(pipes[i][1]);
+                }
+
+                // If we are in the first iteration of the loop (first command) we execute the 
+                // command with its arguments using execvp with argvv[0][0] and argvv[0]
+                if (i == 0){
+                    execvp(argvv[0][0], argvv[0]);
+                    perror("execvp");
+                }
+
+                // For commands that are not the first (argument is the output of the previous 
+                // command), we execute them with execlp and arvv[i][0] (command name)
+                else{
+                    execlp(argvv[i][0], argvv[i][0], NULL);
+                    perror("execlp");
+                }
+
+            }
+
             else{
-              // If the execution is in background we print the child pid and don't wait
-              printf("[%d]\n", pid);
-            }         
-          }
+                // In the parent process we close both ends of the pipe number i in the parent process
+                if (i != 0) {
+                    close(pipes[i - 1][0]);
+                    close(pipes[i - 1][1]);
+                }
+            }
         }
 
-        else if(command_counter == 2){
-          // Case when a sequence of 2 commands is given
-          pid_t pid1 = fork(); // Fork a child process
-          if (pid1 == 0){
-            // Child process creates a pipe and creates a child process to execute the first command
-            int fd[2];
-            if(pipe(fd) < 0){
-              perror("Error: pipe");
+        // Wait for all child processes to finish if running in foreground
+        if (in_background == 0){
+            for (int i = 0; i < command_counter; i++) {
+                waitpid(child_pids[i], NULL, 0);
             }
-            pid_t pid2 = fork();
-            if (pid2 == 0){
-              // Grandchild process redirects the standard output to the pipe and executes the first command
-              close(1);
-              close(fd[0]);
-              dup(fd[1]);
-              close(fd[1]);
-              if(execvp(argvv[0][0], argvv[0]) < 0){
-                perror("Error: command not found\n");
-              }
-            }
-            else{
-              // Child process redirects the standard input to the pipe and executes the second command
-              close(0);
-              close(fd[1]);
-              dup(fd[0]);
-              close(fd[0]);
-              if(execlp(argvv[1][0], argvv[1][0], NULL) < 0){
-                perror("Error: command not found\n");
-              }
-              
-            }
-
-          }
-          else{
-            // Parent process waits for the child process to finish (foreground)
-            if (in_background == 0){
-              waitpid(pid1, &status, 0);
-              if (status < 0){
-                perror("Error: command execution");
-              }
-            }
-            else{
-              // If the execution is in background we print the child pid and don't wait
-              printf("[%d]\n", pid1);
-            }         
-          }
-          
         }
-              
-			}
+        
+        else{
+            // If execution is in background we don't wait and instead print the pid of the child that 
+            // executes the first command
+            printf("[%d]\n", child_pids[0]);
+        }
+
+        // Free the memory we allocated for the file descriptors of each pipe
+        for (int i = 0; i < command_counter - 1; i++) {
+            free(pipes[i]);
+        }
+        
+        // Free the memory we allocated for the pipes and the child pids
+        free(pipes);
+        free(child_pids);
+       
 		}
 	}
 	
