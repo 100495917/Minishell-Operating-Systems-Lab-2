@@ -16,7 +16,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-
 // We add this library because we need it to use the isdigit() function to 
 // check that the operands input of the mycalc command are strings representing integers
 #include <ctype.h>
@@ -297,226 +296,323 @@ int main(int argc, char *argv[]) {
             printf("[ERROR] The structure of the command is mycalc "
                             "<operand_1> <add/mul/div> <operand_2>\n");
           }
+
+          // Store the command run in the history queue
+
+          // Case when the history queue is not full (n_elem < history_size)
           if (n_elem < history_size) {
-            store_command(argvv, filev, in_background, history + n_elem);
+            // Store the command in the tail of the queue (the next empty position)
+            store_command(argvv, filev, in_background, history + tail);
+            // Increment the tail and the number of elements of the history queue
             n_elem++;
             tail++;
-          } else {
+          }
+            // Case when the history queue is full (n_elem == history_size)
+          else {
+            // Store the command in the head of the queue (the oldest command) 
+            // so that we follow a circular FIFO aproach
             store_command(argvv, filev, in_background, history + head);
+            // Set the tail to the previous head (since the new command was inserted in the head, 
+            // it is now the one the tail should point to)
             tail = head;
+            // Increment the head by one and divide by the remainder so that it is always in the interval [0, history_size)
             head = (head + 1) % history_size;
           }
+        
+        // Since when mycalc is entered no command need to be executed (creation of pipes and process forking),
+        // we continue to the next iteration of the read_command() loop
+        continue;
         }
 
-
-
-
-
-
-
-
-
-
-
-
-
-      
+        // we check if the myhistory internal command was called
         else if (strcmp(argvv[0][0], "myhistory") == 0) {
 
+          // We check that only 1 command was entered and 1 or 0 arguments are passed to it
           if (command_counter == 1 && argvv[0][2] == NULL) {
 
+            // First the case when mycalc is entered without arguments (print las 20 commands)
             if (argvv[0][1] == NULL) {
 
+              // Start the loop to print the last 20 commands in the history queue with as many iterations
+              // as commands/command sequences in the history array (indicated by n_elem)
               for (int i = 0; i < n_elem; i++) {
-                int point = (head + i) % history_size;
-                fprintf(stderr, "%i |", i);
-                for (int i = 0; i < (history + point)->num_commands; i++){
-                  for (int j = 0; (history + point)->argvv[i][j] != NULL; j++){
-                    fprintf(stderr, " %s", (history + point)->argvv[i][j]);
+                // history_index indicates the displacement from the inital memory address of the history array,
+                // future variables that use this name are used for the same purpose
+                // In this case, the displacement is calculated using the loop index i and the head of the history queue
+                int history_index = (head + i) % history_size;
+                fprintf(stderr, "%i ", i);
+                // Double loop to print all the contents of the comand matrix (argvv),
+                // which contains one command and its arguments per row
+                for (int i = 0; i < (history + history_index)->num_commands; i++){
+                  for (int j = 0; (history + history_index)->argvv[i][j] != NULL; j++){
+                    // (history + history_index) is a pointer to the current struc command in the history queue,
+                    // so we have to use the arrow operator to access the attributes of the struct
+                    fprintf(stderr, " %s", (history + history_index)->argvv[i][j]);
+                  
+                    }
+                  // If the command in the command sequence is not the last one, we print a pipe separator |
+                  if (i != ((history + history_index)->num_commands) - 1){
+                    fprintf(stderr, " |");
                     }
                   }
-                if (strcmp((history + point)->filev[0], "0") != 0){
-                  fprintf(stderr, " < %s", (history + point)->filev[0]);
+                
+                // If the content of the command filev[0] is not 0 we print < filev[0] to indicate the input redirection
+                if (strcmp((history + history_index)->filev[0], "0") != 0){
+                  fprintf(stderr, " < %s", (history + history_index)->filev[0]);
                 }
 
-                if (strcmp((history + point)->filev[1], "0") != 0){
-                  fprintf(stderr, " > %s", (history + point)->filev[1]);
+                // If the content of the command filev[1] is not 0 we print > filev[1] to indicate the output redirection
+                if (strcmp((history + history_index)->filev[1], "0") != 0){
+                  fprintf(stderr, " > %s", (history + history_index)->filev[1]);
                 } 
 
-                // Error redirection missing
-                if (strcmp((history + point)->filev[2], "0") != 0){
-                  fprintf(stderr, " ! > %s", (history + point)->filev[2]);
+                // If the content of the command filev[2] is not 0 we print ! > filev[2] to indicate the error redirection
+                if (strcmp((history + history_index)->filev[2], "0") != 0){
+                  fprintf(stderr, " ! > %s", (history + history_index)->filev[2]);
                 }
-                
+
+                if ((history + history_index)->in_background == 1){
+                  fprintf(stderr, " &");
+                }
+
+                // Print new line after printing each command sequence
                 fprintf(stderr, "\n");
                 }
+              // Since when myhistory is entered without arguments no command need to be executed
+              // (creation of pipes and process forking), we continue to the next iteration of the read_command() loop
+              continue;
             }
 
-            /*else {
-              if (argv[0][1] >= 0 && argv[0][1] < n_elem-1) {
-                fprintf(stderr, "Running command %i\n", argv[0][1]);
-                int point = (head + argv[0][1]) % 20;
-                struct command *cmd = history + index;
-                fprintf(stderr, "Executing command from history: %i\n", argv[0[1]);
-                for (int i = 0; i < cmd->num_commands; i++) {
-                  for (int j = 0; j < cmd->args[i]; j++) {
-                    printf("%s ", cmd->argvv[i][j]);
-                  }
-                  printf("| ");
-                }
-                printf("\n");
+            // Case when myhistory is entered with one argument
+            else {
+              // We check that the argument is a number in the interval [0, n_elem], where n_elem
+              // is the number of commands stored in the history queue
+              if (atoi(argvv[0][1]) >= 0 && atoi(argvv[0][1]) < n_elem) {
+                
+                fprintf(stderr, "Running command %i\n", atoi(argvv[0][1]));
+                // Set variable run_history to 1 to indicate that the command that has to be run next comes from the history queue
+                run_history = 1;
 
-              } else {
-                fprintf(stderr, "[ERROR] The argument number must be in the "
-                                "interval [0, 19]\n");
-                }*/
+              } 
+              else {
+                fprintf(stdout, "ERROR: Command not found\n");
+                continue;
+              }
+            }        
+          }
+          else{
+            fprintf(stderr, "[ERROR] The structure of the command is myhistory or myhistory [n]\n");
+            continue;
           }
         }
 
+        if (run_history == 1){
+          // If the command to be executed comes from the history queue, we set the command counter to the
+          // number of commands in the command sequence indicated by the argument stored in argvv[0][1]
+          int history_index = (head + atoi(argvv[0][1])) % history_size;
+          command_counter = (history + history_index)->num_commands;
+        }
+        
+        // Create pipes for sequences of commands (number of pipes = number of
+        // commands - 1) The pipe arrays are stored in another array allocated
+        // with malloc(), hence the double int pointer
+        int **pipes = (int **)malloc(sizeof(int *) * (command_counter - 1));
 
+        // Then we allocate space for 2 file descriptors (size of a pipe) in
+        // each of the positions of the array
+        for (int i = 0; i < command_counter - 1; i++) {
+          pipes[i] = (int *)malloc(sizeof(int) * 2);
+          if (pipe(pipes[i]) == -1) {
+            perror("pipe");
+          }
+        }
 
+        // Then we allocate memory for each of the child pids that will be
+        // created (one child per command)
+        pid_t *child_pids = (pid_t *)malloc(sizeof(pid_t) * command_counter);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-        else {
-          // Create pipes for sequences of commands (number of pipes = number of
-          // commands - 1) The pipe arrays are stored in another array allocated
-          // with malloc(), hence the double int pointer
-          int **pipes = (int **)malloc(sizeof(int *) * (command_counter - 1));
-
-          // Then we allocate space for 2 file descriptors (size of a pipe) in
-          // each of the positions of the array
-          for (int i = 0; i < command_counter - 1; i++) {
-            pipes[i] = (int *)malloc(sizeof(int) * 2);
-            if (pipe(pipes[i]) == -1) {
-              perror("pipe");
-            }
+        // We use a loop to fork the parent process and create as many
+        // children as commands
+        for (int i = 0; i < command_counter; i++) {
+          child_pids[i] = fork();
+          if (child_pids[i] == -1) {
+            perror("fork");
           }
 
-          // Then we allocate memory for each of the child pids that will be
-          // created (one child per command)
-          pid_t *child_pids = (pid_t *)malloc(sizeof(pid_t) * command_counter);
+          if (child_pids[i] == 0) {
+            // Child process
 
-          // We use a loop to fork the parent process and create as many
-          // children as commands
-          for (int i = 0; i < command_counter; i++) {
-            child_pids[i] = fork();
-            if (child_pids[i] == -1) {
-              perror("fork");
+            if (i != 0) {
+              // If a command that is not the first one is to be executed we
+              // redirect the stdin to the read end of the pipe connected to
+              // the previous command
+              close(0);
+              dup(pipes[i - 1][0]);
+
+              // Close the pipe used to receive data from the previous command
+              close(pipes[i - 1][0]);
+              close(pipes[i - 1][1]);
             }
 
-            if (child_pids[i] == 0) {
-              // Child process
+            if (i != (command_counter - 1)) {
+              // If a command that is not the last one is to be executed we
+              // redirect the stdout to the write end of the pipe connected to
+              // the following command
+              close(1);
+              dup(pipes[i][1]);
 
-              if (i != 0) {
-                // If a command that is not the first one is to be executed we
-                // redirect the stdin to the read end of the pipe connected to
-                // the previous command
-                close(0);
-                dup(pipes[i - 1][0]);
-
-                // Close the pipe used to receive data from the previous command
-                close(pipes[i - 1][0]);
-                close(pipes[i - 1][1]);
-              }
-
-              if (i != (command_counter - 1)) {
-                // If a command that is not the last one is to be executed we
-                // redirect the stdout to the write end of the pipe connected to
-                // the following command
-                close(1);
-                dup(pipes[i][1]);
-
-                // Close the pipe used to send data to the following command
-                close(pipes[i][0]);
-                close(pipes[i][1]);
-              }
-
-              /**************CHECK REDIRECTIONS***************/
-
-              // Perform input redirection if needed
-              if (i == 0 && (strcmp(filev[0], "0") != 0)) {
-                close(0); // close stdin
-                int fd_in =
-                    open(filev[0],
-                         O_RDONLY); // stdin is redirected to fd_in, now input
-                                    // is obtained from the specified file
-                if (fd_in == -1) {
-                  perror("Error opening input file");
-                  exit(EXIT_FAILURE);
-                }
-              }
-
-              // Output redirection if needed
-              if ((i == (command_counter - 1)) &&
-                  (strcmp(filev[1], "0") != 0)) {
-                close(1); // close stdout
-                int fd_out = open(filev[1], O_WRONLY | O_CREAT | O_TRUNC,
-                                  0644); // stdout is redirected to fd_out
-                if (fd_out == -1) {
-                  perror("Error opening output file");
-                  exit(EXIT_FAILURE);
-                }
-              }
-
-              // Standard error redirection if needed
-              if (strcmp(filev[2], "0") != 0) {
-                close(2); // stderr
-                int fd_error = open(filev[2], O_WRONLY | O_CREAT | O_TRUNC,
-                                    0644); // stdout is redirected to fd_error
-                if (fd_error == -1) {
-                  perror("Error opening error output file");
-                  exit(EXIT_FAILURE);
-                }
-              }
-
-              /**************EXECUTE***************/
-
-              // If we are in the first iteration of the loop (first command) we
-              // execute the command with its arguments using execvp with
-              // argvv[0][0] and argvv[0]
-              if (i == 0) {
-                execvp(argvv[0][0], argvv[0]);
-                perror("execvp");
-              }
-
-              // For commands that are not the first (argument is the output of
-              // the previous command), we execute them with execlp and
-              // arvv[i][0] (command name)
-              else {
-                execvp(argvv[i][0], argvv[i]);
-                perror("execvp");
-              }
-
+              // Close the pipe used to send data to the following command
+              close(pipes[i][0]);
+              close(pipes[i][1]);
             }
 
-            else {
-              // In the parent process we close both ends of the pipe number i
-              // in the parent process
-              if (i != 0) {
-                close(pipes[i - 1][0]);
-                close(pipes[i - 1][1]);
+            /**************CHECK REDIRECTIONS***************/
+
+            // Perform input redirection if needed
+
+            // Case when the command does not come from the history queue
+            if (i == 0 && (strcmp(filev[0], "0") != 0) && run_history == 0) {
+              close(0); // close stdin
+              int fd_in = open(filev[0],O_RDONLY); 
+              // stdin is redirected to fd_in, now input is obtained from the specified file
+              if (fd_in == -1) {
+                perror("Error opening input file");
+                exit(EXIT_FAILURE);
               }
             }
+
+            // Case when the command comes from the history queue
+            else if (i == 0 && (strcmp(filev[0], "0") != 0) && run_history == 1){
+              close(0); // close stdin
+              int history_index = (head + atoi(argvv[0][1])) % history_size;
+              int fd_in = open((history + history_index)->filev[0], O_RDONLY); 
+              // stdin is redirected to fd_in, now input is obtained from the specified file from the
+              // struct command in the history queue
+              if (fd_in == -1) {
+                perror("Error opening input file");
+                exit(EXIT_FAILURE);
+              }
+            }
+
+            // Output redirection if needed
+            // Case when the command does not come from the history queue
+            if ((i == (command_counter - 1)) && (strcmp(filev[1], "0") != 0) && run_history == 0) {
+              close(1); // close stdout
+              int fd_out = open(filev[1], O_WRONLY | O_CREAT | O_TRUNC, 0644); // stdout is redirected to fd_out
+              if (fd_out == -1) {
+                perror("Error opening output file");
+                exit(EXIT_FAILURE);
+              }
+            }
+            // Case when the command comes from the history queue
+            else if ((i == (command_counter - 1)) && (strcmp(filev[1], "0") != 0) && run_history == 0){
+              close(1); // close stdout
+              int history_index = (head + atoi(argvv[0][1])) % history_size;
+              int fd_out = open((history + history_index)->filev[1], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+              // stdout is redirected to fd_out (file indicated in the struct command from the history queue)
+              if (fd_out == -1) {
+                perror("Error opening output file");
+                exit(EXIT_FAILURE);
+              }
+              fprintf(stderr, "output file is: %s\n", (history + history_index)->filev[1]);
+              fprintf(stderr, "[%d]\n", fd_out);
+            }
+
+            // Standard error redirection if needed
+
+            // Case when the command does not come from the history queue
+            if (strcmp(filev[2], "0") != 0 && run_history == 0) {
+              close(2); // stderr
+              int fd_error = open(filev[2], O_WRONLY | O_CREAT | O_TRUNC, 0644); // stdout is redirected to fd_error
+              if (fd_error == -1) {
+                perror("Error opening error output file");
+                exit(EXIT_FAILURE);
+              }
+              fprintf(stderr, "error file is: %s\n", filev[2]);
+              fprintf(stderr, "[%d]\n", fd_error);
+            }
+            // Case when the command comes from the history queue
+            else if (strcmp(filev[2], "0") != 0 && run_history == 1){
+              close(2); // stderr
+              int history_index = (head + atoi(argvv[0][1])) % history_size;
+              int fd_error = open((history + history_index)->filev[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);
+              // stdout is redirected to fd_error (file indicated in the struct command from the history queue)
+              if (fd_error == -1) {
+                perror("Error opening error output file");
+                exit(EXIT_FAILURE);
+              }
+              fprintf(stderr, "error file is: %s\n", (history + history_index)->filev[2]);
+              fprintf(stderr, "[%d]\n", fd_error);
+            }
+
+            /**************EXECUTE***************/
+
+            // If we are in the first iteration of the loop (first command) we
+            // execute the command with its arguments using execvp with
+            // argvv[0][0] and argvv[0]
+
+            // Case when the command does not come from the history queue
+            if (i == 0  && run_history == 0) {
+              
+              execvp(argvv[0][0], argvv[0]);
+              perror("execvp");
+              continue;
+            }
+            // Case when the command comes from the history queue
+            else if (i == 0  && run_history == 1){
+              int history_index = (head + atoi(argvv[0][1])) % history_size;
+              execvp((history + history_index)->argvv[0][0], (history + history_index)->argvv[0]);
+              perror("execvp");
+              continue;
+            }
+
+            // For commands that are not the first (arguments include the output of
+            // the previous command), we execute them with execvp and
+            // argvv[i] (rest of the arguments come from the pipe)
+
+            // Case when the command does not come from the history queue
+            else if (run_history == 0){
+              
+              execvp(argvv[i][0], argvv[i]);
+              perror("execvp");
+              continue;
+            }
+            // Case when the command comes from the history queue
+            else{
+              int history_index = (head + atoi(argvv[0][1])) % history_size;
+              execvp((history + history_index)->argvv[i][0], (history + history_index)->argvv[i]);
+              perror("execvp");
+              continue;
+            }
+
           }
 
+          else {
+            // In the parent process we close both ends of the pipe number i
+            // in the parent process
+            if (i != 0) {
+              close(pipes[i - 1][0]);
+              close(pipes[i - 1][1]);
+            }
+          }
+        }
+
+        if (run_history == 0){
           // Wait for all child processes to finish if running in foreground
           if (in_background == 0) {
-            for (int i = 0; i < command_counter; i++) {
+            // Old wait loop, does not clear the zombie processes left when a command is executed in background
+            /*for (int i = 0; i < command_counter; i++) {
               waitpid(child_pids[i], NULL, 0);
+            }*/
+
+            pid_t finished_child_pid = -1;
+            while (finished_child_pid != child_pids[command_counter - 1]){
+              finished_child_pid = wait(NULL);
+              // This loop receives while the childs the parent has created terminate and does not stop until 
+              // the child in charge of executing the last command of the command sequence terminates
+              // This loop is also in charge of eliminating the zombie processes left when a command is executed in background,
+              // since the childs that execute commands in background are left as zombie processses an are only deleted when 
+              // the next command in foreground is executed
             }
           }
 
@@ -525,34 +621,70 @@ int main(int argc, char *argv[]) {
             // pid of the child that executes the first command
             printf("[%d]\n", child_pids[0]);
           }
-
-          // Free the memory we allocated for the file descriptors of each pipe
-          for (int i = 0; i < command_counter - 1; i++) {
-            free(pipes[i]);
+        }
+        
+        else{
+          int history_index = (head + atoi(argvv[0][1])) % history_size;
+          // Wait for all child processes to finish if running in foreground
+          if ((history + history_index)->in_background == 0) {
+            /*for (int i = 0; i < command_counter; i++) {
+              waitpid(child_pids[i], NULL, 0);*/
+            pid_t finished_child_pid = -1;
+            while (finished_child_pid != child_pids[command_counter - 1]){
+              finished_child_pid = wait(NULL);
+            }
           }
 
-          // Free the memory we allocated for the pipes and the child pids
-          free(pipes);
-          free(child_pids);
-
-          if (n_elem < history_size) {
-            store_command(argvv, filev, in_background, history + tail);
-            n_elem++;
-            tail++;
-          } else {
-            store_command(argvv, filev, in_background, history + head);
-            tail = head;
-            head = (head + 1) % history_size;
+          else {
+            // If execution is in background we don't wait and instead print the
+            // pid of the child that executes the first command
+            printf("[%d]\n", child_pids[0]);
           }
         }
+        
+
+        // Free the memory we allocated for the file descriptors of each pipe
+        for (int i = 0; i < command_counter - 1; i++) {
+          free(pipes[i]);
+        }
+
+        // Free the memory we allocated for the pipes and the child pids
+        free(pipes);
+        free(child_pids);
+
+        // If the command executed does not come from the history queue, we save its information
+        // in the history queue with the function store_command()
+        if (run_history == 0){
+          // Case when the history queue is not full (n_elem < history_size)
+          if (n_elem < history_size) {
+            // Store the command in the tail of the queue (the next empty position)
+            store_command(argvv, filev, in_background, history + tail);
+            // Increment the tail and the number of elements of the history queue
+            n_elem++;
+            tail++;
+
+          }
+          // Case when the history queue is full (n_elem == history_size)
+          else {
+            // Store the command in the head of the queue (the oldest command) 
+            // so that we follow a circular FIFO aproach
+            store_command(argvv, filev, in_background, history + head);
+            // Set the tail to the previous head (since the new command was inserted in the head, 
+            // it is now the one the tail should point to)
+            tail = head;
+            // Increment the head by one and divide by the remainder so that it is always in the interval [0, history_size)
+            head = (head + 1) % history_size;
+          }
+        }       
       }
     }
   }
 
-  // FREE RESOURCES OF HISTORY
+  // Free resources of the history queue with a loop and free_command()
+  int history_index;
   for (int i = 0; i < n_elem; i++){
-    int point = (head+i) % history_size;
-    free_command(history + point);
+    history_index = (head + i) % history_size;
+    free_command(history + history_index);
   }
   return 0;
 }
