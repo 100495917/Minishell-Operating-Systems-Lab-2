@@ -232,64 +232,64 @@ int main(int argc, char *argv[]) {
               argvv[0][4] == NULL) {
 
             // mycalc is executed in the minishell process: it does not have file redirections and is not executed in background, so those options are not availables
-                        if (strcmp(filev[0], "0") != 0 || strcmp(filev[1], "0") != 0 || strcmp(filev[2], "0") != 0 || in_background != 0) {
-                            printf( "[ERROR] mycalc is an internal command. It cannot have redirections and cannot be executed in background.\n");
+            if (strcmp(filev[0], "0") != 0 || strcmp(filev[1], "0") != 0 || strcmp(filev[2], "0") != 0 || in_background != 0) {
+                printf( "[ERROR] mycalc is an internal command. It cannot have redirections and cannot be executed in background.\n");
 
-                        } else {
-                            // we cast the arguments to integers for the operands, and pointer to char for operator
-                            int operand1 = atoi(argvv[0][1]);
-                            int operand2 = atoi(argvv[0][3]);
-                            char * operator = argvv[0][2];
-                            int result=0;
+            } else {
+                // we cast the arguments to integers for the operands, and pointer to char for operator
+                int operand1 = atoi(argvv[0][1]);
+                int operand2 = atoi(argvv[0][3]);
+                char * operator = argvv[0][2];
+                int result=0;
 
-                            // add operator
-                            if (strcmp(operator, "add") == 0)
-                            {
-                                initialize_acc_environment();
-                                // Get the current value of "Acc"
-                                char* acc_env = getenv("Acc");     
+                // add operator
+                if (strcmp(operator, "add") == 0)
+                {
+                    initialize_acc_environment();
+                    // Get the current value of "Acc"
+                    char* acc_env = getenv("Acc");     
 
-                                if (acc_env != NULL) {
-                                    int acc = atoi(acc_env);  // Convert string to integer
-                                    //printf("Current value of 'Acc': %d\n", acc);                  
+                    if (acc_env != NULL) {
+                        int acc = atoi(acc_env);  // Convert string to integer
+                        //printf("Current value of 'Acc': %d\n", acc);                  
 
-                                    result = operand1 + operand2;
-                                    acc += result;
+                        result = operand1 + operand2;
+                        acc += result;
 
-                                    fprintf(stderr, "[OK] %d + %d = %d; Acc %d\n", operand1, operand2, result, acc);
+                        fprintf(stderr, "[OK] %d + %d = %d; Acc %d\n", operand1, operand2, result, acc);
 
-                                    // Convert the updated accumulator value back to a string
-                                    char acc_str[20];  // Assuming a maximum of 20 characters for the string representation
-                                    snprintf(acc_str, sizeof(acc_str), "%d", acc);
+                        // Convert the updated accumulator value back to a string
+                        char acc_str[20];  // Assuming a maximum of 20 characters for the string representation
+                        snprintf(acc_str, sizeof(acc_str), "%d", acc);
 
-                                    // Update the "Acc" environment variable with the new value
-                                    if (setenv("Acc", acc_str, 1) != 0) {
-                                        perror("setenv");
-                                    }
-                                    //printf("Updated value of 'Acc': %d\n", acc);
-                                } else {
-                                printf( "[ERROR] 'Acc' environment variable not found.\n");
-                                }
-
-                            // mul operator
-                            } else if (strcmp(operator, "mul") == 0) {
-                                result = operand1 * operand2;
-                                fprintf(stderr, "[OK] %d * %d = %d\n", operand1, operand2, result);
-                            
-                            // div operator
-                            } else if (strcmp(operator, "div") == 0) {
-                                if (operand2 == 0) {
-                                printf( "[ERROR] Division by zero\n");
-                                }
-                                int quotient = operand1 / operand2;
-                                int remainder = operand1 % operand2;
-                                fprintf(stderr, "[OK] %d / %d = %d; Remainder %d\n", operand1, operand2, quotient, remainder);
-
-                            // any other operator is not allowed
-                            } else {
-                              printf( "[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>\n");
-                            }
+                        // Update the "Acc" environment variable with the new value
+                        if (setenv("Acc", acc_str, 1) != 0) {
+                            perror("setenv");
                         }
+                        //printf("Updated value of 'Acc': %d\n", acc);
+                    } else {
+                    printf( "[ERROR] 'Acc' environment variable not found.\n");
+                    }
+
+                // mul operator
+                } else if (strcmp(operator, "mul") == 0) {
+                    result = operand1 * operand2;
+                    fprintf(stderr, "[OK] %d * %d = %d\n", operand1, operand2, result);
+                
+                // div operator
+                } else if (strcmp(operator, "div") == 0) {
+                    if (operand2 == 0) {
+                    printf( "[ERROR] Division by zero\n");
+                    }
+                    int quotient = operand1 / operand2;
+                    int remainder = operand1 % operand2;
+                    fprintf(stderr, "[OK] %d / %d = %d; Remainder %d\n", operand1, operand2, quotient, remainder);
+
+                // any other operator is not allowed
+                } else {
+                  printf( "[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>\n");
+                }
+            }
             // if several commands were called or num. arguments < 4 we raise
             // error
           } else {
