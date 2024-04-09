@@ -133,10 +133,10 @@ void initialize_acc_environment() {
     if (acc_env == NULL) {
         // "Acc" environment variable does not exist, so set it to zero
         setenv("Acc", "0", 1);
-        printf("Initialized 'Acc' environment variable to zero.\n");
+        //printf("Initialized 'Acc' environment variable to zero.\n");
     } else {
         // "Acc" environment variable already exists
-        printf("'Acc' environment variable already exists. No modification needed.\n");
+        //printf("'Acc' environment variable already exists. No modification needed.\n");
     }
 }
 
@@ -288,14 +288,14 @@ int main(int argc, char *argv[]) {
 
                             // any other operator is not allowed
                             } else {
-                              printf( "[ERROR] The structure of the command is mycalc <operand 1> <add/mul/div> <operand 2>\n");
+                              printf( "[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>\n");
                             }
                         }
             // if several commands were called or num. arguments < 4 we raise
             // error
           } else {
-            fprintf(stderr, "[ERROR] The structure of the command is mycalc "
-                            "<operand 1> <add/mul/div> <operand 2>\n");
+            printf("[ERROR] The structure of the command is mycalc "
+                            "<operand_1> <add/mul/div> <operand_2>\n");
           }
           if (n_elem < history_size) {
             store_command(argvv, filev, in_background, history + n_elem);
@@ -470,8 +470,6 @@ int main(int argc, char *argv[]) {
                   perror("Error opening output file");
                   exit(EXIT_FAILURE);
                 }
-                fprintf(stderr, "output file is: %s\n", filev[1]);
-                fprintf(stderr, "[%d]\n", fd_out);
               }
 
               // Standard error redirection if needed
@@ -483,8 +481,6 @@ int main(int argc, char *argv[]) {
                   perror("Error opening error output file");
                   exit(EXIT_FAILURE);
                 }
-                fprintf(stderr, "error file is: %s\n", filev[2]);
-                fprintf(stderr, "[%d]\n", fd_error);
               }
 
               /**************EXECUTE***************/
