@@ -223,6 +223,8 @@ int main(int argc, char *argv[]) {
       if (command_counter > MAX_COMMANDS) {
         printf("Error: Maximum number of commands is %d \n", MAX_COMMANDS);
       } else {
+
+        /****** MYCALC *******/
         // we check if the mycalc internal command was called
         if (strcmp(argvv[0][0], "mycalc") == 0) {
           // mycalc does not allow command sequences and we check that 4
@@ -290,8 +292,7 @@ int main(int argc, char *argv[]) {
                   printf( "[ERROR] The structure of the command is mycalc <operand_1> <add/mul/div> <operand_2>\n");
                 }
             }
-            // if several commands were called or num. arguments < 4 we raise
-            // error
+            // if several commands were called or number of arguments < 4 we raise error
           } else {
             printf("[ERROR] The structure of the command is mycalc "
                             "<operand_1> <add/mul/div> <operand_2>\n");
@@ -323,6 +324,8 @@ int main(int argc, char *argv[]) {
         // we continue to the next iteration of the read_command() loop
         continue;
         }
+
+        /******* MYHISTORY *******/
 
         // we check if the myhistory internal command was called
         else if (strcmp(argvv[0][0], "myhistory") == 0) {
